@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Monitoring System</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Specific styles for the login layout to match your theme */
+        .login-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #242424;
+        }
+        .login-card {
+            background-color: #2c2c2c;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .login-card h1 {
+            margin-bottom: 30px;
+            color: white;
+        }
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background-color: #1a1a1a;
+            color: white;
+            box-sizing: border-box;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .login-btn:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <p id="test"></p>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <h1>Login</h1>
+            <form class="login-form" id="loginForm" action="" method="post">
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit" class="login-btn">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <!-- <script>
+        // Now you can use it anywhere!
+        console.log(CONFIG.CAM1_URL); 
+        setupCamera(1, `${CONFIG.CAM1_URL}/cam_feed`);
+
+    </script> -->
+
+    <script>
+        // Use the CAM1 URL from your environment variables
+        const CAM1_URL = `${CONFIG.CAM1_URL}`; 
+
+        const loginForm = document.getElementById('loginForm');
+
+        // Check if already logged in (Equivalent to useEffect in React)
+        window.onload = () => {
+            if (sessionStorage.getItem("username")) {
+                window.location.href = "dashboard.html";
+            }
+        };
+
+        loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(loginForm);
+            
+            try {
+                // Mimicking the handleLogin function in your TSX
+                const res = await fetch(`${CAM1_URL}/login`, {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await res.json();
+
+                if (data.Status === "Success") {
+                    const username = formData.get("username");
+                    sessionStorage.setItem("username", username);
+                    window.location.href = "dashboard.html";
+                } else {
+                    alert("Login Failed: " + data.Status);
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Could not connect to the server.");
+            }
+        };
+    </script>
+</body>
+</html>

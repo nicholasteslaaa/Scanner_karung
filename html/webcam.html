@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Kamera</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="hamburger" id="hamburger-menu">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </div>
+
+    <p id="test"></p>
+
+    <nav class="sidebar" id="sidebar">
+        <p style="padding-left: 10px;">User: <span id="username-display">Admin</span></p>
+        <button onclick="location.href='/dashboard.html'">Dashboard</button>
+        <button onclick="location.href='/webcam.html'">Webcam</button>
+        <hr style="border: 0.5px solid #444; width: 100%;">
+        <button class="logout-btn-sidebar" onclick="logout()">Logout</button>
+    </nav>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="main-content">
+        <div class="webcam-container">
+            <header class="webcam-header">
+                <h1>Monitoring Kamera</h1>
+            </header>
+
+            <div class="camera-grid">
+                <div class="camera-card">
+                    <div class="camera-header">
+                        <div class="camera-info">
+                            <span id="dot-1" class="status-dot online"></span>
+                            <h3>Kamera 1</h3>
+                        </div>
+                        <span id="badge-1" class="live-badge">LIVE</span>
+                    </div>
+                    <div class="camera-body">
+                        <img id="feed-1" src="" alt="Kamera 1" class="video-feed">
+                        <div id="offline-1" class="camera-offline" style="display: none;">
+                            <div class="offline-icon">⚠️</div>
+                            <p>Sinyal Terputus</p>
+                            <button onclick="location.reload()" class="retry-btn">Hubungkan Ulang</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="camera-card">
+                    <div class="camera-header">
+                        <div class="camera-info">
+                            <span id="dot-2" class="status-dot online"></span>
+                            <h3>Kamera 2</h3>
+                        </div>
+                        <span id="badge-2" class="live-badge">LIVE</span>
+                    </div>
+                    <div class="camera-body">
+                        <img id="feed-2" src="" alt="Kamera 2" class="video-feed">
+                        <div id="offline-2" class="camera-offline" style="display: none;">
+                            <div class="offline-icon">⚠️</div>
+                            <p>Sinyal Terputus</p>
+                            <button onclick="location.reload()" class="retry-btn">Hubungkan Ulang</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+
+        
+        // --- Sidebar Logic ---
+        const hamburger = document.getElementById('hamburger-menu');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        const bars = document.querySelectorAll('.bar');
+        
+        function toggleMenu() {
+            sidebar.classList.toggle('open');
+            overlay.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
+            bars.forEach(bar => bar.classList.toggle('open'));
+        }
+
+        hamburger.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = '/login.html';
+        }
+        
+        // Display current username from session
+        const user = sessionStorage.getItem("username") || "Guest";
+        document.getElementById('username-display').innerText = user;
+        
+        // --- Camera Logic ---
+        // Change these to your actual IP/Endpoints
+        const CAM1_URL = `${CONFIG.CAM1_URL}/cam_feed`; 
+        const CAM2_URL = `${CONFIG.CAM2_URL}/cam_feed`;
+
+        function setupCamera(id, url) {
+            const user = sessionStorage.getItem("username");
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            
+            const img = document.getElementById(`feed-${id}`);
+            const offlineDiv = document.getElementById(`offline-${id}`);
+            const dot = document.getElementById(`dot-${id}`);
+            const badge = document.getElementById(`badge-${id}`);
+
+            img.src = url;
+
+            img.onerror = function() {
+                img.style.display = 'none';
+                offlineDiv.style.display = 'block';
+                dot.classList.remove('online');
+                dot.classList.add('offline');
+                if (badge) badge.style.display = 'none';
+            };
+        }
+
+        // Initialize Feeds
+        setupCamera(1, CAM1_URL);
+        setupCamera(2, CAM2_URL);
+    </script>
+</body>
+</html>
