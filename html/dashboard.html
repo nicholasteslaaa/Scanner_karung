@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Monitoring</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Ensuring basic layout visibility if style.css is missing */
+        .status-online { color: #2ecc71; font-weight: bold; }
+        .badge { background: #3498db; padding: 4px 8px; border-radius: 4px; color: white; }
+        
+        .sidebar { transition: 0.3s; width: 0; overflow: hidden; position: fixed; height: 100%; background: #2c3e50; z-index: 1000; }
+        .sidebar.open { width: 250px; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; }
+    </style>
+</head>
+<body>
+
+    <div class="hamburger" id="hamburger-menu">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </div>
+
+    <nav class="sidebar" id="sidebar">
+        <p style="padding: 20px 10px 10px 10px; color: white;">User: <span id="username-display">Admin</span></p>
+        <button onclick="location.href='dashboard.html'">Dashboard</button>
+        <button onclick="location.href='webcam.html'">Webcam</button>
+        <hr style="border: 0.5px solid #444; width: 100%;">
+        <button class="logout-btn-sidebar" onclick="logout()">Logout</button>
+    </nav>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="main-content">
+        <div class="dashboard-container">
+            <header class="dashboard-header">
+                <h1>Dashboard</h1>
+            </header>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Total Karung (Sum)</span>
+                    <span class="stat-value" id="total-karung">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Total Variasi (Sum)</span>
+                    <span class="stat-value" id="total-entry">0</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h3>Inventory Data</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Variasi</th>
+                            <th>Jumlah</th>
+                            <th>Cam1</th>
+                            <th>Cam2</th>
+                            <th>IMG 1</th>
+                            <th>IMG 2</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr>
+                            <td colspan="3" style="text-align:center;">Loading data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script src="config.js"></script>
+
+    <script>
+        // ================= UI =================
+        const hamburger = document.getElementById('hamburger-menu');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        const bars = document.querySelectorAll('.bar');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('open');
+            overlay.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
+            bars.forEach(bar => bar.classList.toggle('open'));
+        }
+
+        hamburger.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        // ================= DASHBOARD =================
+
+        async function updateDashboard() {
+            const user = sessionStorage.getItem("username");
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.getElementById("username-display").innerText = user;
+
+            try {
+                const response = await fetch(`${CONFIG.CAM1_URL}/get_table`, {
+                    method: "POST"
+                });
+
+                if (!response.ok) throw new Error("Server error");
+
+                const data = await response.json();
+
+                const tbody = document.getElementById("table-body");
+                tbody.innerHTML = "";
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    tbody.innerHTML =
+                        "<tr><td colspan='3' style='text-align:center;'>No records found.</td></tr>";
+                    document.getElementById("total-karung").innerText = "0";
+                    document.getElementById("total-entry").innerText = "0";
+                    return;
+                }
+
+                // ===== SUM =====
+                const sumJumlah = data.reduce((acc, curr) =>
+                    acc + (Number(curr.jumlah_karung) || 0), 0);
+
+                const sumVariasi = data.reduce((acc, curr) =>
+                    acc + (Number(curr.cam1) || 0), 0);
+
+                document.getElementById("total-karung").innerText =
+                    sumJumlah.toLocaleString();
+
+                document.getElementById("total-entry").innerText =
+                    sumVariasi.toLocaleString();
+
+                // ===== TABLE =====
+                data.slice().reverse().forEach(item => {
+                    const row = document.createElement("tr");
+                    console.log(row);
+                    row.innerHTML = `
+                        <td>${item.datetime || '-'}</td>
+                        <td>${item.cam1 || 0}</td>
+                        <td>${item.jumlah_karung || 0}</td>
+                        <td>${item.cam1 || 0}</td>
+                        <td>${item.cam2 || 0}</td>
+                        <td><img src="./img/${item.path1}"></td>
+                        <td><img src="./img/${item.path2}"></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error("Dashboard Error:", error);
+                document.getElementById("table-body").innerHTML =
+                    `<tr><td colspan="3" style="color:red; text-align:center;">
+                        Failed to connect to API
+                    </td></tr>`;
+            }
+        }
+
+        window.onload = updateDashboard;
+        setInterval(updateDashboard, 10000);
+    </script>
+</body>
+</html>
