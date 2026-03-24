@@ -155,18 +155,18 @@ def generateFrame():
 async def cam_feed():
     return StreamingResponse(generateFrame(), media_type="multipart/x-mixed-replace; boundary=frame")
 
-@app.get("/download")
-def download_file(filename: str):
-    file_path = os.path.join(FILE_DIRECTORY, filename)
+# @app.get("/download")
+# def download_file(filename: str):
+#     file_path = os.path.join(FILE_DIRECTORY, filename)
 
-    if not os.path.exists(file_path):
-        return {"error": "File not found"}
+#     if not os.path.exists(file_path):
+#         return {"error": "File not found"}
 
-    return FileResponse(
-        path=file_path,
-        media_type="application/octet-stream",
-        filename=filename  # <- important, forces download
-    )
+#     return FileResponse(
+#         path=file_path,
+#         media_type="application/octet-stream",
+#         filename=filename  # <- important, forces download
+#     )
 
 @app.post("/login")
 def login(username:str = Form(...), password:str = Form(...)):
