@@ -32,7 +32,7 @@ frame_lock = threading.Lock()
 @app.on_event("startup")
 def startup_event():
     global cap
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture("Person Walking 1.mp4")
 
     t = threading.Thread(target=thread_function, daemon=True)
     t.start()
@@ -52,9 +52,18 @@ def thread_function():
 
         with frame_lock:
             # current_frame = result["frame"]
-            # info = result["info"]
+            # info = result
+            
             current_frame = frame
-            info = ""
+            info = {"info":0}
+            
+            
+            # try:
+            #     # Point to the other port
+            #     response = requests.get("http://localhost:8000/get_info") # or 8001
+            #     print(f"Response: {response.json()}")
+            # except Exception as e:
+            #     print(f"Error connecting: {e}")
             
         # time.sleep(0.5) 
 
@@ -81,7 +90,8 @@ async def cam_feed():
 
 @app.get("/get_info")
 async def get_info():
-    return f"info {random.randint(0,100)}"
+    global info
+    return info
 
 
 def signal_handler():

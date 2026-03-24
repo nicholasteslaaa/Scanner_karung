@@ -35,6 +35,24 @@ def startup_event():
 
     t = threading.Thread(target=thread_function, daemon=True)
     t.start()
+    
+def fetch_info():
+    max_attempts = 5
+
+    for attempt in range(max_attempts):
+        try:
+            response = requests.get(
+                "http://localhost:8001/get_info",
+                timeout=3
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.RequestException as e:
+            print(f"Attempt {attempt+1} failed:", e)
+            time.sleep(1)
+
+    return None
 
 def thread_function():
     global current_frame,info
@@ -52,16 +70,26 @@ def thread_function():
         
         with frame_lock:
             current_frame = result["frame"]
-            info = result["info"]
             if (result["trigger"]):
-                try:
-                    # Point to the other port
-                    response = requests.get("http://localhost:8001/get_info") # or 8001
-                    print(f"Response: {response.json()}")
-                except Exception as e:
-                    print(f"Error connecting: {e}")
-        # time.sleep(0.5)
-        
+                info = result
+                
+                res = fetch_info()   # Try once (internally 5 attempts)
+
+                if res is None:
+                    print("Server 8001 unavailable. Continuing without cam2 info.")
+                    
+                con = get_db()
+                cur = con.cursor()
+                
+                cur.execute("""
+                    INSERT INTO inventori (jumlah_karung, cam1, cam2, path1, path2)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (10,info["info"],"" if res is None else res["info"],info["filename"],info["filename"]))
+                
+                con.commit()
+                con.close()
+            else:
+                info = None
 
 def get_db():
     con = sqlite3.connect("db.sqlite3")
@@ -127,6 +155,19 @@ def generateFrame():
 async def cam_feed():
     return StreamingResponse(generateFrame(), media_type="multipart/x-mixed-replace; boundary=frame")
 
+@app.get("/download")
+def download_file(filename: str):
+    file_path = os.path.join(FILE_DIRECTORY, filename)
+
+    if not os.path.exists(file_path):
+        return {"error": "File not found"}
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/octet-stream",
+        filename=filename  # <- important, forces download
+    )
+
 @app.post("/login")
 def login(username:str = Form(...), password:str = Form(...)):
     con = get_db()
@@ -165,7 +206,8 @@ def register(username:str , password):
 
 @app.get("/get_info")
 async def get_info():
-    return "info info"
+    global info
+    return info
 
 def signal_handler(signum,frame):
     cap.release()

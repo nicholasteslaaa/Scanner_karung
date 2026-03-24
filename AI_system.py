@@ -49,6 +49,12 @@ class AI_counter:
         isPastStart = False
         
         detected_person = 0
+        
+        flag_out = False
+        # filename = f"./savedFrame/{datetime.now()}.jpeg"
+        filename = f"{datetime.now()}.png"
+        path = f"/var/www/html/img/{filename}" 
+        
         for box in result[0].boxes:
             class_detect = int(box.cls)
         
@@ -63,7 +69,8 @@ class AI_counter:
             isPastStart = self.is_behind_the_line(column_x_r,cx)
             
             if isPastMiddle and not isPastEnd and not self.trigger:
-                cv2.imwrite(f"./savedFrame/{datetime.now()}.jpeg",frame)
+                cv2.imwrite(path,frame)
+                flag_out = True
                 self.trigger = True
                 
             cv2.circle(frame,(cx,cy),1,(0,255,255),5,1)
@@ -87,7 +94,7 @@ class AI_counter:
         
         cv2.circle(frame,(cxl,h//2),1,(0,0,255),1,1)
         
-        return {"frame":frame,"info":detected_person,"trigger":self.trigger}
+        return {"frame":frame,"info":detected_person,"trigger":flag_out,"filename":filename}
         
 if __name__ == "__main__":
     AI = AI_counter()
