@@ -26,6 +26,7 @@ app.add_middleware(
 cap = None
 current_frame = None
 info = None
+fetch_trigger = False
 frame_lock = threading.Lock() 
 
 @app.on_event("startup")
@@ -34,28 +35,72 @@ def startup_event():
     cap = cv2.VideoCapture("Person Walking.mp4")
 
     t = threading.Thread(target=thread_function, daemon=True)
+    t_fetch_info = threading.Thread(target=fetch_info, daemon=True)
     t.start()
+    t_fetch_info.start()
     
 def fetch_info():
+    global fetch_trigger, info
     max_attempts = 5
 
-    for attempt in range(max_attempts):
-        try:
-            response = requests.get(
-                "http://localhost:8001/get_info",
-                timeout=3
-            )
-            response.raise_for_status()
-            return response.json()
+    while True:  # Fix 2: always keep thread alive
+        print(info)
+        if not fetch_trigger:  # Fix 3: wait when there's nothing to do
+            time.sleep(0.1)
+            continue
 
-        except requests.exceptions.RequestException as e:
-            print(f"Attempt {attempt+1} failed:", e)
-            time.sleep(1)
+        current_info = info  # Fix 4: snapshot to avoid race condition with None check
+        if current_info is None:
+            fetch_trigger = False
+            continue
 
-    return None
+        res = None
+        for attempt in range(max_attempts):
+            try:
+                response = requests.get(
+                    "http://localhost:8001/get_info",
+                    timeout=3
+                )
+                response.raise_for_status()
+                res = response.json()
+
+                if res is None:
+                    print("Server 8001 unavailable. Continuing without cam2 info.")
+
+                info = None
+                fetch_trigger = False
+                break  # Fix 5: exit retry loop on success
+
+            except requests.exceptions.RequestException as e:
+                print(f"Attempt {attempt + 1} failed:", e)
+                time.sleep(1)
+
+
+        # All attempts exhausted
+        print("All fetch attempts failed. Skipping this trigger.")
+        print(info)
+
+        con = get_db()
+        cur = con.cursor()
+
+        cur.execute("""
+                    INSERT INTO inventori (jumlah_karung, cam1, cam2, path1, path2)
+                    VALUES (?, ?, ?, ?, ?)
+                    """, (
+                        10,
+                        current_info["info"],
+                        -1 if res is None else res["info"],
+                        current_info["filename"],
+                        "" if res is None else current_info["filename"]
+                    ))
+
+        con.commit()
+        con.close()
+        info = None
+        fetch_trigger = False
 
 def thread_function():
-    global current_frame,info
+    global fetch_trigger,current_frame,info
     while cap.isOpened():
         ret, frame = cap.read()
         frame = cv2.flip(frame,1)
@@ -72,24 +117,7 @@ def thread_function():
             current_frame = result["frame"]
             if (result["trigger"]):
                 info = result
-                
-                res = fetch_info()   # Try once (internally 5 attempts)
-
-                if res is None:
-                    print("Server 8001 unavailable. Continuing without cam2 info.")
-                    
-                con = get_db()
-                cur = con.cursor()
-                
-                cur.execute("""
-                    INSERT INTO inventori (jumlah_karung, cam1, cam2, path1, path2)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (10,info["info"],"" if res is None else res["info"],info["filename"],info["filename"]))
-                
-                con.commit()
-                con.close()
-            else:
-                info = None
+                fetch_trigger = True
 
 def get_db():
     con = sqlite3.connect("db.sqlite3")
