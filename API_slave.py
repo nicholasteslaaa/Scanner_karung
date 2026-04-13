@@ -1,16 +1,11 @@
-from fastapi import FastAPI,Form
+from fastapi import FastAPI
 import cv2
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import dotenv_values, set_key
-from webcam_manager import webcam_stream
 import threading
 import signal
 import sys
 import time
-# from AI_system import AI_counter
-import requests
-import random
 
 # model = AI_counter("yolo11n.pt")
 
@@ -21,8 +16,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# It's better to define thecamera here, but ensure it's accessible
-# camera = webcam_stream()
 
 cap = None
 current_frame = None

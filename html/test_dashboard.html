@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <p id="test"></p>
+    <table border="1px ">
+        <thead>
+            <th>Timestamp</th>
+            <th>Jumlah</th>
+            <th>Cam1</th>
+            <th>Cam2</th>
+            <th>IMG 1</th>
+            <th>IMG 2</th>
+        </thead>
+        <tbody id="table-body">
+        
+        </tbody>
+    </table>
+
+        <select id="offset-select">
+        </select>
+
+        <table border="1px">
+            <tbody id="table-body"></tbody>
+        </table>
+</body>
+<script>
+    const API = "http://localhost:8000";
+    let offset = 0;
+    const gap = 5; // Keep this consistent with your Python code
+
+    const table_body = document.getElementById("table-body");
+    const offset_select = document.getElementById("offset-select");
+
+    // 1. Setup the Dropdown Event
+    offset_select.addEventListener("change", (e) => {
+        offset = e.target.value;
+        table_body.innerHTML = ""; // Clear existing rows
+        getData();
+    });
+
+    // 2. Fetch the Data Rows
+    async function getData() {
+        try {
+            const response = await fetch(`${API}/get_table?offset=${offset}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const data = await response.json();
+            
+            data.forEach(item => {
+                const row = `<tr>
+                        <td>${item.datetime}</td>
+                        <td>${item.jumlah_karung}</td>
+                        <td>${item.cam1}</td>
+                        <td>${item.cam2}</td>
+                        <td>${item.path1}</td>
+                        <td>${item.path2}</td>
+                    </tr>`;
+                table_body.insertAdjacentHTML("beforeend", row);
+            });
+        } catch (error) {
+            console.error('Could not fetch data:', error);
+        }
+    }
+
+    // 3. Fetch the Count
+    async function getDataCount() {
+        try {
+            const response = await fetch(`${API}/get_count`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            return data.count;
+        } catch (error) {
+            console.error('Could not fetch count:', error);
+            return 0;
+        }
+    }
+
+    // 4. THE FIX: Initialize everything inside an async function
+    async function init() {
+        // Wait for the count to come back
+        const totalRows = await getDataCount(); 
+        const totalPages = Math.ceil(totalRows / gap);
+
+        // Build the dropdown options
+        let optionsHTML = "";
+        for (let i = 0; i < totalPages; i++) {
+            optionsHTML += `<option value="${i}">Page ${i + 1}</option>`;
+        }
+        offset_select.innerHTML = optionsHTML;
+
+        // Fetch the first page of data
+        getData();
+    }
+
+    // Start the process
+    init();
+
+</script>
+</html>
