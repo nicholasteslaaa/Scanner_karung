@@ -1,11 +1,11 @@
+# API_master.py
+
 from fastapi import FastAPI,Form,Response
 import cv2
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 import bcrypt
-import socket
-from dotenv import set_key
 import threading
 import signal
 import sys
@@ -37,13 +37,13 @@ RASPI2_IP = "192.168.100.223:8000"
 @app.on_event("startup")
 def startup_event():
     global cap
-    cap = cv2.VideoCapture("images.jpeg")
+    cap = cv2.VideoCapture("Person Walking.mp4")
 
     t = threading.Thread(target=thread_function, daemon=True)
     t_fetch_info = threading.Thread(target=fetch_info, daemon=True)
     t.start()
     t_fetch_info.start()
-    
+
 def fetch_info():
     global fetch_trigger, info
     max_attempts = 5
@@ -58,50 +58,53 @@ def fetch_info():
             fetch_trigger = False
             continue
 
-        res = None
+        res = {"None":None}
         for attempt in range(max_attempts):
             try:
-                response = requests.get(
-                    f"http://{RASPI2_IP}/get_info",
-                    timeout=3
-                )
+                response = requests.get(f"http://{RASPI2_IP}/get_info", timeout=3)
                 response.raise_for_status()
                 res = response.json()
-
-                if res is None:
-                    print("Server 8001 unavailable. Continuing without cam2 info.")
-
-                info = None
-                fetch_trigger = False
-                break  # Fix 5: exit retry loop on success
+                print(res)
+                break  # success — skip the else block
 
             except requests.exceptions.RequestException as e:
                 print(f"Attempt {attempt + 1} failed:", e)
                 time.sleep(1)
+        else:
+            # Only runs if all attempts exhausted (no break)
+            print("All fetch attempts failed. Using res = None.")
+            res = {"None":None}
 
-
-        # All attempts exhausted
-        print("All fetch attempts failed. Skipping this trigger.")
-        print(info)
-
+        # DB insert always happens here, after the loop
         con = get_db()
         cur = con.cursor()
 
-        cur.execute("""
-                    INSERT INTO inventori (variasi,jumlah_karung, cam1, cam2, path1, path2)
-                    VALUES (?,?, ?, ?, ?, ?)
-                    """, (
-                        2,
-                        10,
-                        current_info["info"],
-                        -1 if res is None else res["info"],
-                        current_info["filename"],
-                        "" if res is None else current_info["filename"]
-                    ))
+        variasi = 2
+        jumlah_karung = 10
+        cam1 = current_info["info"]
+        cam2 = -1
+        path1 = current_info["filename"]
+        path2 = ""
 
+        if "info" in res:
+            cam2 = res["info"]
+        if "filename" in res:
+            path2 = res["filename"]
+
+        cur.execute("""
+                    INSERT INTO inventori (variasi, jumlah_karung, cam1, cam2, path1, path2)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        variasi,
+                        jumlah_karung,
+                        cam1,
+                        cam2,
+                        path1,
+                        path2
+                    ))
         con.commit()
         con.close()
-        info = None
+        info = {"None":None}
         fetch_trigger = False
 
 def thread_function():
@@ -109,15 +112,15 @@ def thread_function():
     while cap.isOpened():
         ret, frame = cap.read()
         frame = cv2.flip(frame,1)
-        
+
         if not ret:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             continue
             # break
-        
+
         result = model.detect(frame)
         # frame = result["frame"]
-        
+
         with frame_lock:
             current_frame = result["frame"]
             if (result["trigger"]):
@@ -231,15 +234,15 @@ def generateFrame():
         if current_frame is not None:
             ret, buffer = cv2.imencode(".jpg", current_frame)
             frame_bytes = buffer.tobytes()
-            
+
             yield (
                 b'--frame\r\n'
-                b'Content-Type: image/jpeg\r\n\r\n' 
-                + frame_bytes + 
+                b'Content-Type: image/jpeg\r\n\r\n'
+                + frame_bytes +
                 b'\r\n'
             )
 
-        time.sleep(0.03) 
+        time.sleep(0.03)
 
 
 @app.get("/cam_feed")
@@ -250,35 +253,35 @@ async def cam_feed():
 def login(username:str = Form(...), password:str = Form(...)):
     con = get_db()
     cur = con.cursor()
-    
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS user_table (
         username TEXT PRIMARY KEY,
         password BLOB NOT NULL
     )
     """)
-    
+
     query = cur.execute(f"SELECT * FROM user_table WHERE username = '{username}'")
     result = query.fetchone()
 
     if (result is None):
         return {"Status":"Account Not Found!"}
-    
+
     if (bcrypt.checkpw(password.encode(),result[1])):
         return {"Status":"Success"}
     else:
         return {"Status":"Failed"}
-    
+
 def register(username:str , password):
     con = get_db()
     cur = con.cursor()
-    
+
     query = cur.execute(f"SELECT * FROM user_table WHERE username = ?",(username,))
     result = query.fetchone()
-    
+
     if (not (result is None)):
         return {"Status":"Username Already Exist!"}
-    cur.execute(f"INSERT INTO user_table(username,password) VALUES (?,?)",[username,bcrypt.hashpw(password.encode(),bcrypt.gensalt())])    
+    cur.execute(f"INSERT INTO user_table(username,password) VALUES (?,?)",[username,bcrypt.hashpw(password.encode(),bcrypt.gensalt())])
     con.commit()
     return {"Status":"Success"}
 
@@ -293,4 +296,3 @@ signal.signal(signal.SIGTSTP, signal_handler)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    
