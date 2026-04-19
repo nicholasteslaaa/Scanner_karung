@@ -10,12 +10,17 @@ import threading
 import signal
 import sys
 import time
-from AI_system import AI_counter
+
+from sqlalchemy.ext.asyncio import result
+
+# from AI_system import AI_counter
+import ai_system
 import requests
 import pandas as pd
 from io import BytesIO
 
-model = AI_counter("yolo11n.pt")
+# model = AI_counter("yolo11n.pt")
+model = ai_system.raspi_samping()
 
 app = FastAPI()
 app.add_middleware(
@@ -31,13 +36,17 @@ info = None
 fetch_trigger = False
 frame_lock = threading.Lock()
 
+date_choice = "*"
+
+PAGE_GAP = 10
+
 RASPI1_IP = "192.168.100.218:8000"
 RASPI2_IP = "192.168.100.223:8000"
 
 @app.on_event("startup")
 def startup_event():
     global cap
-    cap = cv2.VideoCapture("Person Walking.mp4")
+    cap = cv2.VideoCapture('ujiniksap/samping/v7_1.mp4')
 
     t = threading.Thread(target=thread_function, daemon=True)
     t_fetch_info = threading.Thread(target=fetch_info, daemon=True)
@@ -58,7 +67,7 @@ def fetch_info():
             fetch_trigger = False
             continue
 
-        res = {"None":None}
+        res = None
         for attempt in range(max_attempts):
             try:
                 response = requests.get(f"http://{RASPI2_IP}/get_info", timeout=3)
@@ -73,7 +82,7 @@ def fetch_info():
         else:
             # Only runs if all attempts exhausted (no break)
             print("All fetch attempts failed. Using res = None.")
-            res = {"None":None}
+            res = None
 
         # DB insert always happens here, after the loop
         con = get_db()
@@ -104,26 +113,32 @@ def fetch_info():
                     ))
         con.commit()
         con.close()
-        info = {"None":None}
+        info = None
         fetch_trigger = False
 
 def thread_function():
     global fetch_trigger,current_frame,info
     while cap.isOpened():
         ret, frame = cap.read()
-        frame = cv2.flip(frame,1)
+        # frame = cv2.flip(frame,1)
 
         if not ret:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             continue
             # break
 
-        result = model.detect(frame)
+        # result = model.detect(frame)
         # frame = result["frame"]
+        result = model.scan_samping(frame)
+        frame = result[0]
 
         with frame_lock:
-            current_frame = result["frame"]
-            if (result["trigger"]):
+            # current_frame = result["frame"]
+            current_frame = frame
+            # if (result["trigger"]):
+            #     info = result
+            #     fetch_trigger = True
+            if (result[1] != -1):
                 info = result
                 fetch_trigger = True
 
@@ -141,29 +156,41 @@ def table_exists(cur, table_name):
     """, (table_name,))
     return cur.fetchone() is not None
 
+
 @app.post("/get_table")
 def get_table(offset: int = 0):
+    global PAGE_GAP, date_choice
     con = get_db()
     cur = con.cursor()
-    gap = 5
-    start = offset*gap
-    end = start+gap
+    start = offset * PAGE_GAP
+    end = start + PAGE_GAP
     try:
-        cur.execute("SELECT * FROM inventori")
-        # cur.execute("SELECT * FROM eval")
+        if date_choice == "*":
+            cur.execute(
+                "SELECT datetime,variasi,jumlah_karung,cam1,cam2,path1,path2 FROM inventori ORDER BY datetime DESC")
+        else:
+            cur.execute(
+                "SELECT datetime,variasi,jumlah_karung,cam1,cam2,path1,path2 FROM inventori WHERE DATE(datetime) = ? ORDER BY datetime DESC",
+                (date_choice,))
+
         rows = cur.fetchall()
         return [dict(row) for row in rows[start:end]]
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        con.close()
 
-@app.get("/get_count") # Changed from .post to .get
+
+@app.get("/get_count")
 def get_count():
     con = get_db()
     cur = con.cursor()
     try:
-        # Use SQL COUNT instead of fetching all rows into memory
-        cur.execute("SELECT COUNT(*) as total FROM inventori")
-        # cur.execute("SELECT COUNT(*) as total FROM eval")
+        if date_choice == "*":
+            cur.execute("SELECT COUNT(*) as total FROM inventori")
+        else:
+            cur.execute("SELECT COUNT(*) as total FROM inventori WHERE DATE(datetime) = ?", (date_choice,))
+
         result = cur.fetchone()
         return {"count": result["total"]}
     except Exception as e:
@@ -171,18 +198,45 @@ def get_count():
     finally:
         con.close()
 
+@app.get("/get_datetime")
+def get_datetime():
+    con = get_db()
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT DISTINCT date(datetime) AS date FROM inventori")
+        results = cur.fetchall()
+        return {"dates": [row["date"] for row in results]}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        con.close()
+
+
+@app.post("/change_date")
+def change_date(change_date: str):
+    global date_choice
+    date_choice = change_date
+    print(f"changing date to {date_choice}")
+    return {"message": f"Date changed to {date_choice}"}
+
 
 @app.get("/summary_info")
 def get_summary():
+    global  date_choice
     con = get_db()
-    # Using a Row-based cursor makes it much easier to convert to a dict
-    # If using sqlite3, you'd set con.row_factory = sqlite3.Row
     cur = con.cursor()
     try:
-        # We give the columns aliases (total_karung, total_data)
-        # so they have names in our resulting dictionary
-        query = "SELECT SUM(jumlah_karung) AS total_karung, COUNT(*) AS total_rows FROM inventori;"
-        # query = "SELECT SUM(jumlah_karung) AS total_karung, COUNT(*) AS total_rows FROM eval;"
+        if date_choice == "*":
+            query = f"""
+                        SELECT SUM(jumlah_karung) AS total_karung, COUNT(*) AS total_rows
+                        FROM inventori
+                    """
+        else:
+            query = f"""
+                    SELECT SUM(jumlah_karung) AS total_karung, COUNT(*) AS total_rows
+                    FROM inventori
+                    WHERE DATE (datetime) = DATE ('{date_choice}') \
+                    """
         cur.execute(query)
 
         row = cur.fetchone()
@@ -200,11 +254,16 @@ def get_summary():
 
 @app.get("/download_excel")
 def download_excel():
+    global date_choice
     con = get_db()
     try:
         # 1. Read DB with Pandas
-        query = "SELECT * FROM inventori(datetime,variasi,jumlah_karung,cam1,cam2)"
-        df = pd.read_sql_query(query, con)
+        if (date_choice == "*"):
+            query = "SELECT datetime,variasi,jumlah_karung,cam1,cam2 FROM inventori"
+            df = pd.read_sql_query(query, con)
+        else:
+            query = "SELECT datetime,variasi,jumlah_karung,cam1,cam2 FROM inventori WHERE date(datetime) = ?"
+            df = pd.read_sql_query(query, con, params=(date_choice,))
 
         # 2. Convert to XLSX in memory
         output = BytesIO()

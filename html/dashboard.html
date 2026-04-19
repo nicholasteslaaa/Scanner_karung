@@ -6,13 +6,66 @@
     <title>Dashboard Monitoring</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Ensuring basic layout visibility if style.css is missing */
+        /* RESTORED ORIGINAL STYLES */
         .status-online { color: #2ecc71; font-weight: bold; }
         .badge { background: #3498db; padding: 4px 8px; border-radius: 4px; color: white; }
-        
+
         .sidebar { transition: 0.3s; width: 0; overflow: hidden; position: fixed; height: 100%; background: #2c3e50; z-index: 1000; }
         .sidebar.open { width: 250px; }
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; }
+
+        /* PROFESSIONAL PAGINATION (Centered) */
+        .pagination-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 1.5rem 0 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .page-btn {
+            min-width: 36px;
+            height: 36px;
+            padding: 0 10px;
+            background: #fff;
+            color: #2c3e50;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: #f0f4f8;
+            border-color: #3498db;
+            color: #3498db;
+        }
+
+        .page-btn.active {
+            background: #3498db;
+            color: #fff;
+            border-color: #3498db;
+            font-weight: bold;
+            cursor: default;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-ellipsis {
+            font-size: 14px;
+            color: #888;
+            padding: 0 4px;
+            line-height: 36px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -37,15 +90,20 @@
         <div class="dashboard-container">
             <header class="dashboard-header">
                 <h1>Dashboard</h1>
+                <h3>Tanggal: 
+                    <select name="" id="">
+                        <option value="">14-03-2026</option>
+                    </select>
+                </h3>
             </header>
 
             <div class="stats-grid">
                 <div class="stat-card">
-                    <span class="stat-label">Total Karung (Sum)</span>
+                    <span class="stat-label">Total Karung</span>
                     <span class="stat-value" id="total-karung">0</span>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-label">Total Variasi (Sum)</span>
+                    <span class="stat-label">Total Data</span>
                     <span class="stat-value" id="total-entry">0</span>
                 </div>
             </div>
@@ -58,116 +116,208 @@
                             <th>Timestamp</th>
                             <th>Variasi</th>
                             <th>Jumlah</th>
-                            <th>Cam1</th>
-                            <th>Cam2</th>
-                            <th>IMG 1</th>
-                            <th>IMG 2</th>
+                            <th>Raspi 1</th>
+                            <th>Raspi 2</th>
+                            <th>Kamera Depan</th>
+                            <th>Kamera Samping</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
-                        <tr>
-                            <td colspan="3" style="text-align:center;">Loading data...</td>
-                        </tr>
+                        <!-- <tr>
+                            <td colspan="7" style="text-align:center;">Loading data...</td>
+                        </tr> -->
                     </tbody>
                 </table>
+                
+                <select id="offset-select">
+                </select>
+                <br>
+                <br>
+                <div style="display: flex; justify-content: flex-end;">
+                    <button onclick="downloadExcel()" class="page-btn" style="background: #27ae60; color: white; margin-bottom: 10px;">
+                    Export to Excel
+                    </button>
+                </div>
+            
             </div>
         </div>
     </div>
     
     <script src="config.js"></script>
-
+    
     <script>
-        // ================= UI =================
+        const PAGE_SIZE = 5;
+        let currentPage = 1;
+        let totalPages = 1;
+        let isLoading = false;
+
+        async function initDashboard() {
+            const user = sessionStorage.getItem("username");
+            if (user) document.getElementById("username-display").innerText = user;
+             // Start the process
+            init();
+        }
+        
+        const API = CONFIG.CAM1_URL
+        let offset = 0;
+        const gap = 10; // Keep this consistent with your Python code
+
+        const table_body = document.getElementById("table-body");
+        const offset_select = document.getElementById("offset-select");
+
+        // 1. Setup the Dropdown Event
+        offset_select.addEventListener("change", (e) => {
+            offset = e.target.value;
+            table_body.innerHTML = ""; // Clear existing rows
+            getData();
+        });
+
+        // 2. Fetch the Data Rows
+        async function getData() {
+            try {
+                const response = await fetch(`${API}/get_table?offset=${offset}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const data = await response.json();
+                
+                data.forEach(item => {
+                    const row = `<tr>
+                            <td>${item.datetime}</td>
+                            <td>${item.variasi}</td>
+                            <td>${item.jumlah_karung}</td>
+                            <td>${item.cam1}</td>
+                            <td>${item.cam2}</td>
+                            <td><img src="./img/${item.path1}" width = 320 alt="" srcset=""></td>
+                            <td><img src="./img/${item.path2}" width = 329 alt="" srcset=""</td>
+                        </tr>`;
+                    table_body.insertAdjacentHTML("beforeend", row);
+                });
+                
+            } catch (error) {
+                console.error('Could not fetch data:', error);
+            }
+        }
+
+        // 3. Fetch the Count
+        async function getDataCount() {
+            try {
+                const response = await fetch(`${API}/get_count`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                return data.count;
+            } catch (error) {
+                console.error('Could not fetch count:', error);
+                return 0;
+            }
+        }
+        // Fetch the Summary (Sum and Count)
+        async function updateSummaryCards() {
+            try {
+                const response = await fetch(`${API}/summary_info`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const data = await response.json();
+
+                // Update the HTML elements
+                // We use || 0 as a fallback in case the database returns null
+                document.getElementById("total-karung").innerText = data.total_karung || 0;
+                document.getElementById("total-entry").innerText = data.total_rows || 0;
+
+            } catch (error) {
+                console.error('Could not fetch summary:', error);
+            }
+        }
+
+        async function downloadExcel() {
+            try {
+                // Change the button text to show progress
+                const btn = event.target;
+                const originalText = btn.innerText;
+                btn.innerText = "Downloading...";
+                btn.disabled = true;
+
+                const response = await fetch(`${API}/download_excel`, {
+                    method: 'GET',
+                });
+
+                if (!response.ok) throw new Error("Download failed");
+
+                // Convert response to a "Blob" (Binary Large Object)
+                const blob = await response.blob();
+                
+                // Create a hidden link to trigger the download
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Inventory_Report_${new Date().toLocaleDateString()}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                
+                btn.innerText = originalText;
+                btn.disabled = false;
+
+            } catch (error) {
+                alert("Error downloading file: " + error.message);
+                console.error(error);
+            }
+        }
+
+        // 4. THE FIX: Initialize everything inside an async function
+        async function init() {
+            // 1. Update the top cards (Sum and Total Count)
+            updateSummaryCards();
+
+            // 2. Handle the pagination logic
+            const totalRows = await getDataCount(); 
+            const totalPages = Math.ceil(totalRows / gap);
+
+            let optionsHTML = "";
+            for (let i = 0; i < totalPages; i++) {
+                optionsHTML += `<option value="${i}">Page ${i + 1}</option>`;
+            }
+            offset_select.innerHTML = optionsHTML;
+
+            // 3. Fetch the first page of data for the table
+            getData();
+        }
+
+
+        // Sidebar logic
         const hamburger = document.getElementById('hamburger-menu');
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
-        const bars = document.querySelectorAll('.bar');
 
-        function toggleMenu() {
+        hamburger.onclick = () => {
             sidebar.classList.toggle('open');
             overlay.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
-            bars.forEach(bar => bar.classList.toggle('open'));
-        }
+        };
 
-        hamburger.addEventListener('click', toggleMenu);
-        overlay.addEventListener('click', toggleMenu);
+        overlay.onclick = () => {
+            sidebar.classList.remove('open');
+            overlay.style.display = 'none';
+        };
 
         function logout() {
             sessionStorage.clear();
             window.location.href = 'login.html';
         }
 
-        // ================= DASHBOARD =================
-
-        async function updateDashboard() {
-            const user = sessionStorage.getItem("username");
-            if (!user) {
-                window.location.href = 'login.html';
-                return;
-            }
-
-            document.getElementById("username-display").innerText = user;
-
-            try {
-                const response = await fetch(`${CONFIG.CAM1_URL}/get_table`, {
-                    method: "POST"
-                });
-
-                if (!response.ok) throw new Error("Server error");
-
-                const data = await response.json();
-
-                const tbody = document.getElementById("table-body");
-                tbody.innerHTML = "";
-
-                if (!Array.isArray(data) || data.length === 0) {
-                    tbody.innerHTML =
-                        "<tr><td colspan='3' style='text-align:center;'>No records found.</td></tr>";
-                    document.getElementById("total-karung").innerText = "0";
-                    document.getElementById("total-entry").innerText = "0";
-                    return;
-                }
-
-                // ===== SUM =====
-                const sumJumlah = data.reduce((acc, curr) =>
-                    acc + (Number(curr.jumlah_karung) || 0), 0);
-
-                const sumVariasi = data.reduce((acc, curr) =>
-                    acc + (Number(curr.cam1) || 0), 0);
-
-                document.getElementById("total-karung").innerText =
-                    sumJumlah.toLocaleString();
-
-                document.getElementById("total-entry").innerText =
-                    sumVariasi.toLocaleString();
-
-                // ===== TABLE =====
-                data.slice().reverse().forEach(item => {
-                    const row = document.createElement("tr");
-                    console.log(row);
-                    row.innerHTML = `
-                        <td>${item.datetime || '-'}</td>
-                        <td>${item.cam1 || 0}</td>
-                        <td>${item.jumlah_karung || 0}</td>
-                        <td>${item.cam1 || 0}</td>
-                        <td>${item.cam2 || 0}</td>
-                        <td><img src="./img/${item.path1}"></td>
-                        <td><img src="./img/${item.path2}"></td>
-                    `;
-                    tbody.appendChild(row);
-                });
-
-            } catch (error) {
-                console.error("Dashboard Error:", error);
-                document.getElementById("table-body").innerHTML =
-                    `<tr><td colspan="3" style="color:red; text-align:center;">
-                        Failed to connect to API
-                    </td></tr>`;
-            }
-        }
-
-        window.onload = updateDashboard;
-        setInterval(updateDashboard, 10000);
+        window.onload = initDashboard;
     </script>
 </body>
 </html>
