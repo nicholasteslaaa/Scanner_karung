@@ -4,13 +4,14 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import threading
 import time
-from AI_system import AI_counter
+# from AI_system import AI_counter
+import ai_system
 from queue import Queue
 
 detection_queue = Queue()
 
-model = AI_counter("yolo11n.pt")
-
+# model = AI_counter("yolo11n.pt")
+model = ai_system.raspi_depan()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -29,30 +30,31 @@ info_lock = threading.Lock()
 @app.on_event("startup")
 def startup_event():
     global cap
-    cap = cv2.VideoCapture("Person Walking.mp4")
+    cap = cv2.VideoCapture("ujiniksap/depan/v7_1.mp4")
 
     t = threading.Thread(target=thread_function, daemon=True)
     t.start()
 
-
+counter = 0
 def thread_function():
-    global fetch_trigger, current_frame, info
+    global fetch_trigger, current_frame, info, counter
     while cap.isOpened():
         ret, frame = cap.read()
-        frame = cv2.flip(frame, 1)
 
         if not ret:
+            counter += 1
+            print(f"putaran: {counter}")
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            model.clear_attr()
             continue
-            # break
 
-        result = model.detect(frame)
+        result = model.scan_depan(frame)
 
         with frame_lock:
             current_frame = result["frame"]
-            if (result["trigger"]):
+            if (result["bbox"] != -1):
                 with info_lock:
-                    info = result
+                    info = {"info":str(result["bbox"]),"filename":"belum ada"}
                     print(info)
 @app.get("/get_info")
 async def get_info():

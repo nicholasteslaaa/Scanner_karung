@@ -10,9 +10,6 @@ import threading
 import signal
 import sys
 import time
-
-from sqlalchemy.ext.asyncio import result
-
 # from AI_system import AI_counter
 import ai_system
 import requests
@@ -95,10 +92,11 @@ def fetch_info():
         path1 = current_info["filename"]
         path2 = ""
 
-        if "info" in res:
-            cam2 = res["info"]
-        if "filename" in res:
-            path2 = res["filename"]
+        if res is not None:
+            if "info" in res:
+                cam2 = res["info"]
+            if "filename" in res:
+                path2 = res["filename"]
 
         cur.execute("""
                     INSERT INTO inventori (variasi, jumlah_karung, cam1, cam2, path1, path2)
@@ -127,10 +125,8 @@ def thread_function():
             continue
             # break
 
-        # result = model.detect(frame)
-        # frame = result["frame"]
         result = model.scan_samping(frame)
-        frame = result[0]
+        frame = result["frame"]
 
         with frame_lock:
             # current_frame = result["frame"]
@@ -138,8 +134,8 @@ def thread_function():
             # if (result["trigger"]):
             #     info = result
             #     fetch_trigger = True
-            if (result[1] != -1):
-                info = result
+            if (result["bbox"] != -1):
+                info = {"info":str(result["bbox"]),"filename":"belum ada"}
                 fetch_trigger = True
 
 def get_db():

@@ -69,7 +69,6 @@ class raspi_depan:
         self.num = 0
 
 
-
     def scan_depan(self,frame):
         # global modus, num, object_states, previous_centroids, total_count_L_to_R, total_count_R_to_L, temp, pola, state, model, CONF_THRES, IOU_THRES, folder_path
         # CLASS_NAMES = ['karung']
@@ -80,7 +79,7 @@ class raspi_depan:
         LINE_POSITION_RATIO_B = 0.80
 
         # Konfigurasi Area Tengah
-        CENTER_AREA_NONE = 0.15
+        CENTER_AREA_NONE = 0.25
         CENTER_AREA_START_RATIO = 0.50
         CENTER_AREA_END_RATIO = 0.80
 
@@ -96,6 +95,7 @@ class raspi_depan:
         CENTER_AREA_START_Y = int(frame_height * CENTER_AREA_START_RATIO)
         CENTER_AREA_END_Y = int(frame_height * CENTER_AREA_END_RATIO)
 
+        frame[0:CENTER_AREA_NONE, :] = [0, 0, 255]
         original_frame = frame.copy()
 
         # Inferensi
@@ -184,17 +184,15 @@ class raspi_depan:
             elif global_center_y <= CENTER_AREA_NONE:
                 status_text = "Area None"
                 color = (0, 0, 255)
-                # temp=[]
 
             elif global_center_y > CENTER_AREA_END_Y:
                 status_text = "STATUS: zona C"
                 color = (255, 0, 0)
-                kondisi = 3
                 self.temp.append(3)
             elif CENTER_AREA_NONE < global_center_y < CENTER_AREA_START_Y:
                 status_text = "STATUS: zona A"
                 color = (0, 255, 0)
-                kondisi = 1
+                self.clear_attr()
                 self.temp.append(1)
             cv2.circle(frame, (global_center_x, global_center_y), 10, color, -1)
             cv2.putText(frame, status_text, (50, frame_height - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 1)
@@ -211,14 +209,11 @@ class raspi_depan:
             self.temp = []
             # print(f'result : {res}')
             if res == [1, 0, 3]:
-                # print("hitung")
-                # print(statistics.mode(modus))
                 time.sleep(3)
                 self.modus = []
                 self.num = 0
                 for filename in os.listdir(self.folder_path):
                     file_path = os.path.join(self.folder_path, filename)
-                    # if(file_path[-7:]=='_28.jpg') and state:
                     if (file_path[-6:] == '_3.jpg') and self.state:
                         result = sharpen_image(file_path)
                         cv2.imwrite(file_path, result)
@@ -226,13 +221,17 @@ class raspi_depan:
                         _, row2 = module_menghitung_lapisan.lapisan(file_path, caminfo=2)
                         shutil.move(file_path, 'folder_foto/')
                         self.state = False
+                        print(row2,"<<")
+                        # self.clear_attr()
+
                 self.helper.hapus_tempfile(self.folder_path)
-                self.state = True
+                self.state = True  # ← re-set state=True after clear_attr resets it to False
                 time.sleep(3)
 
             elif res == [3, 0, 1]:
-                # print("tidak hitung")
                 self.helper.hapus_tempfile(self.folder_path)
+                self.clear_attr()  # ← same here
+                self.state = True  # ← re-set after clear
                 time.sleep(3)
         self.state = True
         # Pembersihan
@@ -241,9 +240,7 @@ class raspi_depan:
                 self.previous_centroids.pop(oid, None)
                 self.object_states.pop(oid, None)
 
-        # cv2.imshow('Karung Tracking', frame)
-
-        return frame, row2
+        return {"frame":frame,"bbox":row2}
 
 
 class raspi_samping:
@@ -440,7 +437,7 @@ class raspi_samping:
                 self.previous_centroids.pop(oid, None)
                 self.object_states.pop(oid, None)
 
-        return frame, row1
+        return {"frame": frame,"bbox": row1}
 
 
 if __name__ == "__main__":
@@ -456,51 +453,79 @@ if __name__ == "__main__":
     last_row1 = -1
     last_row2 = -1
 
+    # while True:
+    #     ret_1, frame_1 = cap_1.read()
+    #     ret_2, frame_2 = cap_2.read()
+    #
+    #     if not ret_1:
+    #         cap_1.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    #         raspi_1.clear_attr()
+    #         continue
+    #
+    #     if not ret_2:
+    #         cap_2.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    #         raspi_2.clear_attr()
+    #         continue
+    #
+    #     result_1 = raspi_1.scan_samping(frame_1)
+    #     frame_1 = result_1["frame"]
+    #
+    #     result_2 = raspi_2.scan_depan(frame_2)
+    #     frame_2 = result_2["frame"]
+    #
+    #     row1, row2 = result_1["bbox"], result_2["bbox"]
+    #
+    #     # Update last known results when new data arrives
+    #     updated = False
+    #     if row1 != -1:
+    #         last_row1 = row1
+    #         updated = True
+    #     if row2 != -1:
+    #         last_row2 = row2
+    #         updated = True
+    #
+    #     if updated:
+    #         many_1 = len(last_row1) if not isinstance(last_row1, int) else last_row1
+    #         many_2 = len(last_row2) if not isinstance(last_row2, int) else last_row2
+    #         putaran += 1
+    #         print(f"kamera samping: {many_1}, kamera depan: {many_2}")
+    #         print(f"putaran: {putaran}")
+    #     else:
+    #         print(f"\r{row1}|{row2}", end="", flush=True)
+    #
+    #     cv2.imshow("detection", np.hstack((frame_1, frame_2)))
+    #
+    #     if cv2.waitKey(1) & 0xFF == ord('q'):
+    #         break
+    #
+    # cap_1.release()
+    # cap_2.release()
+    # cv2.destroyAllWindows()
+
     while True:
-        ret_1, frame_1 = cap_1.read()
         ret_2, frame_2 = cap_2.read()
-
-        if not ret_1:
-            cap_1.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            raspi_1.clear_attr()
-            continue
-
         if not ret_2:
             cap_2.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            raspi_2.clear_attr()
             continue
 
-        result_1 = raspi_1.scan_samping(frame_1)
-        frame_1 = result_1[0]
-
         result_2 = raspi_2.scan_depan(frame_2)
-        frame_2 = result_2[0]
+        frame_2 = result_2["frame"]
 
-        row1, row2 = result_1[1], result_2[1]
+        row2 = result_2["bbox"]
 
         # Update last known results when new data arrives
-        updated = False
-        if row1 != -1:
-            last_row1 = row1
-            updated = True
-        if row2 != -1:
-            last_row2 = row2
-            updated = True
 
-        if updated:
-            many_1 = len(last_row1) if not isinstance(last_row1, int) else last_row1
-            many_2 = len(last_row2) if not isinstance(last_row2, int) else last_row2
+        if row2 != -1:
             putaran += 1
-            print(f"kamera samping: {many_1}, kamera depan: {many_2}")
+            print(f"kamera depan: {len(row2)}")
             print(f"putaran: {putaran}")
         else:
-            print(f"\r{row1}|{row2}", end="", flush=True)
+            print(f"\r{row2}", end="", flush=True)
 
-        cv2.imshow("detection", np.hstack((frame_1, frame_2)))
-
+        # cv2.imshow("detection", np.hstack((frame_1, frame_2)))
+        cv2.imshow("kamera depan",frame_2)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    cap_1.release()
     cap_2.release()
     cv2.destroyAllWindows()

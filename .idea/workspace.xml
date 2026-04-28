@@ -5,19 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73e133a4-cf88-4708-9e66-0759b1cfa6da" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.env" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ai_system.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/count_karung.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/db_cam1" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/jsonfile.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/module_menghitung_lapisan.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/preprocessing.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/final.pt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/API_master.py" beforeDir="false" afterPath="$PROJECT_DIR$/API_master.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/API_slave.py" beforeDir="false" afterPath="$PROJECT_DIR$/API_slave.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ai_system.py" beforeDir="false" afterPath="$PROJECT_DIR$/ai_system.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/db.sqlite3" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/html/config.js" beforeDir="false" afterPath="$PROJECT_DIR$/html/config.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/html/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/html/dashboard.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,7 +44,7 @@
     &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/nicsap/Projects/karung&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/nicsap/vinix7/week6&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -88,6 +81,10 @@
       <workItem from="1776323715076" duration="3231000" />
       <workItem from="1776583223848" duration="5494000" />
       <workItem from="1776603658535" duration="9185000" />
+      <workItem from="1776648321127" duration="5931000" />
+      <workItem from="1776735881569" duration="54000" />
+      <workItem from="1776750612370" duration="1071000" />
+      <workItem from="1777100893921" duration="16000" />
     </task>
     <servers />
   </component>
