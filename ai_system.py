@@ -95,7 +95,7 @@ class raspi_depan:
         CENTER_AREA_START_Y = int(frame_height * CENTER_AREA_START_RATIO)
         CENTER_AREA_END_Y = int(frame_height * CENTER_AREA_END_RATIO)
 
-        frame[0:CENTER_AREA_NONE, :] = [0, 0, 255]
+        # frame[0:CENTER_AREA_NONE, :] = [0, 0, 255]
         original_frame = frame.copy()
 
         # Inferensi
@@ -193,7 +193,9 @@ class raspi_depan:
                 status_text = "STATUS: zona A"
                 color = (0, 255, 0)
                 self.clear_attr()
+                self.helper.hapus_tempfile(self.folder_path)
                 self.temp.append(1)
+                
             cv2.circle(frame, (global_center_x, global_center_y), 10, color, -1)
             cv2.putText(frame, status_text, (50, frame_height - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 1)
             # tmp = check(pola)
@@ -345,7 +347,8 @@ class raspi_samping:
 
                 elif center_x > column_x_r and state_old not in ['START_R', 'COUNTED']:
                     self.object_states[obj_id] = 'START_R'
-
+                    self.helper.hapus_tempfile(self.folder_path)
+                    
                 self.previous_centroids[obj_id] = center_x
 
                 ##### Visualisasi Box

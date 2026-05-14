@@ -87,7 +87,7 @@ def fetch_info():
 
         variasi = 2
         jumlah_karung = 10
-        cam1 = current_info["info"]
+        cam1 = len(current_info["info"])
         cam2 = -1
         path1 = current_info["filename"]
         path2 = ""
@@ -177,6 +177,72 @@ def get_table(offset: int = 0):
         con.close()
 
 
+
+@app.post("/edit_data")
+def edit_data(
+    datetime: str = Form(...), 
+    variasi: str = Form(...), 
+    jumlah: int = Form(...)
+):
+    con = get_db()
+    cur = con.cursor()
+    try:
+        # It is safer to use commit inside the try block
+        cur.execute(
+            """
+            UPDATE inventori 
+            SET variasi = ?, jumlah_karung = ? 
+            WHERE datetime = ?
+            """,
+            (variasi, jumlah, datetime)
+        )
+        
+        con.commit() 
+        
+        if cur.rowcount == 0:
+            return {"status": "error", "message": f"No record found for timestamp: {datetime}"}
+            
+        return {"status": "success", "message": "Data updated successfully"}
+        
+    except Exception as e:
+        if con:
+            con.rollback()
+        print(f"Update Error: {e}") # Log to console
+        return {"status": "error", "message": str(e)}
+    finally:
+        con.close()
+        
+@app.post("/delete_data")
+def delete_data(
+    datetime: str = Form(...), 
+):
+    con = get_db()
+    cur = con.cursor()
+    try:
+        # It is safer to use commit inside the try block
+        cur.execute(
+            """
+            DELETE FROM inventori WHERE datetime = ?
+            """,
+            (datetime,)
+        )
+        
+        con.commit() 
+        
+        if cur.rowcount == 0:
+            return {"status": "error", "message": f"No record found for timestamp: {datetime}"}
+            
+        return {"status": "success", "message": "Data deleted successfully"}
+        
+    except Exception as e:
+        if con:
+            con.rollback()
+        print(f"Delete Error: {e}") # Log to console
+        return {"status": "error", "message": str(e)}
+    finally:
+        con.close()
+
+
 @app.get("/get_count")
 def get_count():
     con = get_db()
@@ -229,9 +295,9 @@ def get_summary():
                     """
         else:
             query = f"""
-                    SELECT SUM(jumlah_karung) AS total_karung, COUNT(*) AS total_rows
-                    FROM inventori
-                    WHERE DATE (datetime) = DATE ('{date_choice}') \
+                        SELECT SUM(jumlah_karung) AS total_karung, COUNT(*) AS total_rows
+                        FROM inventori
+                        WHERE DATE (datetime) = DATE ('{date_choice}') \
                     """
         cur.execute(query)
 
@@ -351,3 +417,4 @@ signal.signal(signal.SIGTSTP, signal_handler)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    # register("admin","admin")
